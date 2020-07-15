@@ -1,9 +1,15 @@
+require('dotenv').config()
+const mongoose = require('mongoose')
 const express = require('express')
 const app = express()
 const cors = require('cors')
+const Person = require('./models/person')
+
 
 app.use(express.json())
 var morgan = require('morgan')
+const { response } = require('express')
+
 morgan.token('custom', function getH (req) {
     if(req.method == 'POST') {
         return JSON.stringify(req.body)
@@ -39,32 +45,41 @@ app.delete('/api/persons/:id', (req, res) => {
 })
 
 app.post('/api/persons', (req, res) => {
-    const person = req.body
+    const body = req.body
 
-    if(!person.name) {
+    if(!body.name) {
         return res.status(400).json({
             error: 'name is missing'
         })
     }
     
-    if(!person.number) {
+    if(!body.number) {
         return res.status(400).json({
             error: 'number is missing'
         })
     }
 
-    if(persons.filter(per => per.name === person.name)[0]) {
-        return res.status(400).json({
-            error: 'name is already in the list'
-        })
-    }
-    res.json(person)
-    person.id = Math.floor(Math.random() * Math.floor(10000))
-    persons = persons.concat(person)
+    //if(persons.filter(per => per.name === person.name)[0]) {
+    //    return res.status(400).json({
+    //        error: 'name is already in the list'
+    //    })
+    //}
+
+    const person = new Person({
+        name: body.name,
+        number: body.number
+    })
+
+    person.save().then(savedPerson => {
+        console.log(JSON.stringify(savedPerson))
+        res.json(savedPerson)
+    })
 })
 
 app.get('/api/persons', (req, res) => {
-    res.json(persons)
+    Person.find({}).then(people => {
+        res.json(people)
+    })
 })
 
 app.get('/info', (req, res) => {
@@ -75,13 +90,19 @@ app.get('/info', (req, res) => {
 
 app.get('/api/persons/:id', (req, res) => {
     const id = Number(req.params.id)
-    const person = persons.find(person => person.id === id)
-    if  (person) {
-        res.json(person)
-    } else {
-        res.status(404).end()
-    }
-    
+    Person.findById(req.params.id)
+        .then(person => {
+            if(person) {
+                res.json(person)
+            } else {
+                res.status(404).end()
+            }
+
+        })
+        .catch(error => {
+            console.log(error)
+            res.status(400).send({ error: 'malformatted id' })
+        })
 })
 const PORT = process.env.PORT || 3001
 app.listen(PORT)
